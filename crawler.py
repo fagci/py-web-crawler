@@ -3,7 +3,7 @@ from time import sleep
 from sys import argv
 
 class Crawler:
-    def __init__(self, start_url, deep = 3):
+    def __init__(self, start_url, deep = 5):
         self.start_url = start_url
         self.urls = set()
         self.deep = deep

@@ -35,7 +35,7 @@ class Crawler:
 
         for link in links:
             if link.startswith(self.start_url):
-                self.crawl(link)
+                self.crawl(link, level + 1)
             elif (not link.startswith('//')) and link.startswith('/'):
                 self.crawl(self.start_url + link, level + 1)
 

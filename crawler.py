@@ -20,7 +20,7 @@ class Crawler:
         try:
             response = requests.get(url, timeout = 10)
             elapsed_ms = round(response.elapsed.microseconds / 1000)
-            # print('--[{}] {}ms: {}'.format(response.status_code,elapsed_ms,url))
+            print('[{}] {}ms: {}'.format(response.status_code,elapsed_ms,url))
             html = response.content.decode('utf-8')
             return self.link_compiled_regexp.findall(html)
         except Exception as e:
@@ -38,8 +38,6 @@ class Crawler:
     def crawl(self, i, q):
         while True:
             url, level = q.get()
-            print(f'-T{i} {url}')
-            # print('--thr:{},lv:{},{}'.format(i,level,url))
 
             links = self.get_links(url)
 
@@ -55,22 +53,16 @@ class Crawler:
 
                 self.urls.add(link)
                 self.lock.release()
-                print(f'+T{i} {link}')
                 self.queue.put((link, level+1))
-            if q.empty():
-                break
-        print('q for {} is empty'.format(i))
-        q.task_done()
+            q.task_done()
 
     def start(self):
         for i in range(self.threads):
             worker = Thread(target=self.crawl, args=(i,self.queue,))
             worker.setDaemon(True)
             worker.start()
-        print(f'+TX {self.start_url}')
         self.urls.add(self.start_url)
         self.queue.put((self.start_url,0))
-        print('waiting for q')
         self.queue.join()
 
 if __name__ == "__main__":

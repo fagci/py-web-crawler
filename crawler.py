@@ -1,46 +1,63 @@
 import re, requests
 from time import sleep
 from sys import argv
+from urllib.parse import urlparse
+from queue import Queue
+from threading import Thread
 
 class Crawler:
-    def __init__(self, start_url, deep = 5):
+    def __init__(self, start_url, deep = 5, threads = 10):
         self.start_url = start_url
-        self.urls = set()
         self.deep = deep
+        self.threads = threads
+        self.start_url_parsed = urlparse(start_url)
+        self.urls = set()
+        self.queue = Queue()
         self.link_compiled_regexp = re.compile(r'href="?([^" >]+)[" >]')
 
     def get_links(self, url):
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout = 10)
             elapsed_ms = round(response.elapsed.microseconds / 1000)
             print('[{}] {}ms: {}'.format(response.status_code,elapsed_ms,url))
             html = response.content.decode('utf-8')
             return self.link_compiled_regexp.findall(html)
-        except:
+        except Exception as e:
+            print('exception:', e)
             return []
 
-    def crawl(self, url, level = 1):
+    def normalize_url(self, url):
+        if url.startswith('//'):
+            url = '{}:{}'.format(self.start_url_parsed.scheme, url)
+        elif url.startswith('/'):
+            url = '{}://{}{}'.format(self.start_url_parsed.scheme,self.start_url_parsed.netloc, url)
+        return url
 
-        if url in self.urls:
-            return
 
-        if level > self.deep:
-            return
+    def crawl(self, i, q):
+        while not q.empty():
+            url, level = q.get()
+            if  level > self.deep or url in self.urls:
+                return
 
+            self.urls.add(url)
+            print('thr:{},lv:{},{}'.format(i,level,url))
 
-        sleep(0.025)
-        self.urls.add(url)
+            links = self.get_links(url)
 
-        links = self.get_links(url)
-
-        for link in links:
-            if link.startswith(self.start_url):
-                self.crawl(link, level + 1)
-            elif (not link.startswith('//')) and link.startswith('/'):
-                self.crawl(self.start_url + link, level + 1)
+            for link in links:
+                link = self.normalize_url(link)
+                if link.startswith(self.start_url):
+                    q.put((link, level+1))
+        print('q for {} is empty'.format(i))
 
     def start(self):
-        self.crawl(self.start_url)
+        self.queue.put((self.start_url,0))
+        for i in range(self.threads):
+            worker = Thread(target=self.crawl, args=(i,self.queue,))
+            worker.setDaemon(True)
+            worker.start()
+        self.queue.join()
 
 if __name__ == "__main__":
     crawler = Crawler(argv[1])

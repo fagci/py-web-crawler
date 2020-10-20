@@ -70,7 +70,7 @@ class Crawler:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description='Web crawler.')
 
     parser.add_argument('url', metavar='URL', help='address to start crawl from')
     parser.add_argument('-d', type=int, default=5, help='crawl depth (default: 5)')

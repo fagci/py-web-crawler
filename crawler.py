@@ -82,20 +82,23 @@ class Crawler:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Web crawler.')
+    try:
+        parser = argparse.ArgumentParser(description='Web crawler.')
 
-    parser.add_argument('url', metavar='URL', help='address to start crawl from')
-    parser.add_argument('-d', metavar='DEPTH', type=int, default=5, help='crawl depth (default: 5)')
-    parser.add_argument('-t', metavar='THREADS_COUNT', type=int, default=10, help='threads count (default: 10)')
-    parser.add_argument(
-            '-u',
-            metavar='USER_AGENT',
-            default='Mozilla/5.0 (compatible; pycrawlbot/1.0)',
-            help='user agent (default: Mozilla/5.0 (compatible; pycrawlbot/1.0))')
+        parser.add_argument('url', metavar='URL', help='address to start crawl from')
+        parser.add_argument('-d', metavar='DEPTH', type=int, default=5, help='crawl depth (default: 5)')
+        parser.add_argument('-t', metavar='THREADS_COUNT', type=int, default=10, help='threads count (default: 10)')
+        parser.add_argument(
+                '-u',
+                metavar='USER_AGENT',
+                default='Mozilla/5.0 (compatible; pycrawlbot/1.0)',
+                help='user agent (default: Mozilla/5.0 (compatible; pycrawlbot/1.0))')
 
-    args = parser.parse_args()
+        args = parser.parse_args()
 
-    crawler = Crawler(args.url, args.d, args.t, args.u)
-    crawler.start()
+        crawler = Crawler(args.url, args.d, args.t, args.u)
+        crawler.start()
 
-    print(f'Total: {len(crawler.urls)} url(s)')
+        print(f'Total: {len(crawler.urls)} url(s)')
+    except KeyboardInterrupt:
+        print('bye')

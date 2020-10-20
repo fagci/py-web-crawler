@@ -68,4 +68,5 @@ class Crawler:
 if __name__ == "__main__":
     crawler = Crawler(argv[1])
     crawler.start()
+    print('Total: {} url(s)'.format(len(crawler.urls)))
 

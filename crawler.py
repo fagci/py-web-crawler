@@ -1,6 +1,4 @@
-import re, requests
-from time import sleep
-from sys import argv
+import argparse, re, requests
 from urllib.parse import urlparse
 from queue import Queue
 from threading import Thread, Lock
@@ -25,18 +23,19 @@ class Crawler:
         try:
             response = requests.get(url, timeout = 10)
             elapsed_ms = round(response.elapsed.microseconds / 1000)
-            print('[{}] {}ms: {}'.format(response.status_code,elapsed_ms,url))
             html = response.content.decode('utf-8')
-            return self.link_compiled_regexp.findall(html)
+            p_url = urlparse(url)
+            print(f'[{response.status_code}]({len(html):>6}) {elapsed_ms}ms: {p_url.path}')
+            return map(self.normalize_url,self.link_compiled_regexp.findall(html))
         except Exception as e:
-            print('exception:', e)
+            # print('exception:', e)
             return []
 
     def normalize_url(self, url):
         if url.startswith('//'):
-            url = '{}:{}'.format(self.base_scheme, url)
+            url = f'{self.base_scheme}:{url}'
         elif url.startswith('/'):
-            url = '{}://{}{}'.format(self.base_scheme,self.base_netloc, url)
+            url = '{self.base_scheme}://{self.base_netloc}{url}'
         return url
 
     def manage_url(self, url, level):
@@ -54,12 +53,10 @@ class Crawler:
     def crawl(self, i, q):
         while True:
             url, level = q.get()
-            print(f'T{i} got {url}')
 
             for link_from_page in self.get_links_from_page(url):
-                self.manage_url(self.normalize_url(link_from_page), level + 1)
+                self.manage_url(link_from_page, level + 1)
 
-            print(f'T{i} OK {url}')
             q.task_done()
 
     def start(self):
@@ -73,7 +70,16 @@ class Crawler:
 
 
 if __name__ == "__main__":
-    crawler = Crawler(argv[1])
+    parser = argparse.ArgumentParser(description='Process some integers.')
+
+    parser.add_argument('url', metavar='URL', help='address to start crawl from')
+    parser.add_argument('-d', type=int, default=5, help='crawl depth (default: 5)')
+    parser.add_argument('-t', type=int, default=10, help='threads count (default: 10)')
+
+    args = parser.parse_args()
+
+    crawler = Crawler(args.url, args.d, args.t)
     crawler.start()
-    print('Total: {} url(s)'.format(len(crawler.urls)))
+
+    print(f'Total: {len(crawler.urls)} url(s)')
 

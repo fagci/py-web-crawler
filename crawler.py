@@ -4,38 +4,47 @@ from queue import Queue
 from threading import Thread, Lock
 
 class Crawler:
-    def __init__(self, base_url, deep = 5, threads = 10):
+    def __init__(self, base_url, deep = 5, threads = 10, user_agent = 'Mozilla/5.0 (compatible; pycrawlbot/1.0)'):
         self.base_url = base_url
         self.deep = deep
         self.threads = threads
+        self.ua = user_agent
         self.urls = set()
         self.lock = Lock()
         self.queue = Queue()
 
         base_parsed = urlparse(base_url)
 
-        self.base_scheme = base_parsed.scheme
-        self.base_netloc = base_parsed.netloc
+        self.scheme = base_parsed.scheme
+        self.netloc = base_parsed.netloc
 
-        self.link_compiled_regexp = re.compile(r'href="?([^" >]+)[" >]')
+        self.link_compiled_regexp = re.compile(r'href=["\']?([^"\'> ]*)["\'> ]?')
 
-    def get_links_from_page(self, url):
+    def get_links(self, url):
         try:
-            response = requests.get(url, timeout = 10)
-            elapsed_ms = round(response.elapsed.microseconds / 1000)
-            html = response.content.decode('utf-8')
             p_url = urlparse(url)
-            print(f'[{response.status_code}]({len(html):>6}) {elapsed_ms}ms: {p_url.path}')
-            return map(self.normalize_url,self.link_compiled_regexp.findall(html))
+            headers = {
+                'User-Agent': self.ua
+            }
+            response = requests.get(url, timeout = 10, headers=headers)
+            elapsed_ms = round(response.elapsed.total_seconds() * 1000)
+            content_type = response.headers['Content-Type']
+            if 'text/html' not in content_type:
+                return []
+            html = response.content.decode()
+            links = self.link_compiled_regexp.findall(html)
+
+            print(f'[{response.status_code}] {len(html):>6} B {elapsed_ms:>4} ms {p_url.path}')
+            return map(self.normalize_url, links)
         except Exception as e:
-            # print('exception:', e)
+            print(f'[ERR] {e} for {url}')
             return []
 
     def normalize_url(self, url):
         if url.startswith('//'):
-            return f'{self.base_scheme}:{url}'
+            return f'{self.scheme}:{url}'
         elif url.startswith('/'):
-            return f'{self.base_scheme}://{self.base_netloc}{url}'
+            return f'{self.scheme}://{self.netloc}{url}'
         return url
 
     def manage_url(self, url, level):
@@ -54,8 +63,8 @@ class Crawler:
         while True:
             url, level = queue.get()
 
-            for link_from_page in self.get_links_from_page(url):
-                self.manage_url(link_from_page, level + 1)
+            for link in self.get_links(url):
+                self.manage_url(link, level + 1)
 
             queue.task_done()
 
@@ -73,12 +82,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Web crawler.')
 
     parser.add_argument('url', metavar='URL', help='address to start crawl from')
-    parser.add_argument('-d', type=int, default=5, help='crawl depth (default: 5)')
-    parser.add_argument('-t', type=int, default=10, help='threads count (default: 10)')
+    parser.add_argument('-d', metavar='DEPTH', type=int, default=5, help='crawl depth (default: 5)')
+    parser.add_argument('-t', metavar='THREADS_COUNT', type=int, default=10, help='threads count (default: 10)')
+    parser.add_argument('-u', metavar='USER_AGENT', default='Mozilla/5.0 (compatible; pycrawlbot/1.0)', help='user agent (default: Mozilla/5.0 (compatible; pycrawlbot/1.0))')
 
     args = parser.parse_args()
 
-    crawler = Crawler(args.url, args.d, args.t)
+    crawler = Crawler(args.url, args.d, args.t, args.u)
     crawler.start()
 
     print(f'Total: {len(crawler.urls)} url(s)')

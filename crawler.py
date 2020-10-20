@@ -33,9 +33,9 @@ class Crawler:
 
     def normalize_url(self, url):
         if url.startswith('//'):
-            url = f'{self.base_scheme}:{url}'
+            return f'{self.base_scheme}:{url}'
         elif url.startswith('/'):
-            url = '{self.base_scheme}://{self.base_netloc}{url}'
+            return f'{self.base_scheme}://{self.base_netloc}{url}'
         return url
 
     def manage_url(self, url, level):
@@ -50,18 +50,18 @@ class Crawler:
         self.queue.put((url, level))
         return True
 
-    def crawl(self, i, q):
+    def crawl(self, queue):
         while True:
-            url, level = q.get()
+            url, level = queue.get()
 
             for link_from_page in self.get_links_from_page(url):
                 self.manage_url(link_from_page, level + 1)
 
-            q.task_done()
+            queue.task_done()
 
     def start(self):
-        for i in range(self.threads):
-            worker = Thread(target=self.crawl, args=(i,self.queue,))
+        for _ in range(self.threads):
+            worker = Thread(target=self.crawl, args=(self.queue,))
             worker.setDaemon(True)
             worker.start()
         self.urls.add(self.base_url)

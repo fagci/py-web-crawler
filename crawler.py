@@ -6,17 +6,22 @@ from queue import Queue
 from threading import Thread, Lock
 
 class Crawler:
-    def __init__(self, start_url, deep = 5, threads = 10):
-        self.start_url = start_url
+    def __init__(self, base_url, deep = 5, threads = 10):
+        self.base_url = base_url
         self.deep = deep
         self.threads = threads
-        self.lock = Lock()
-        self.start_url_parsed = urlparse(start_url)
         self.urls = set()
+        self.lock = Lock()
         self.queue = Queue()
+
+        base_parsed = urlparse(base_url)
+
+        self.base_scheme = base_parsed.scheme
+        self.base_netloc = base_parsed.netloc
+
         self.link_compiled_regexp = re.compile(r'href="?([^" >]+)[" >]')
 
-    def get_links(self, url):
+    def get_links_from_page(self, url):
         try:
             response = requests.get(url, timeout = 10)
             elapsed_ms = round(response.elapsed.microseconds / 1000)
@@ -29,31 +34,32 @@ class Crawler:
 
     def normalize_url(self, url):
         if url.startswith('//'):
-            url = '{}:{}'.format(self.start_url_parsed.scheme, url)
+            url = '{}:{}'.format(self.base_scheme, url)
         elif url.startswith('/'):
-            url = '{}://{}{}'.format(self.start_url_parsed.scheme,self.start_url_parsed.netloc, url)
+            url = '{}://{}{}'.format(self.base_scheme,self.base_netloc, url)
         return url
 
+    def manage_url(self, url, level):
+        if level > self.deep or not url.startswith(self.base_url):
+            return False
+        self.lock.acquire()
+        if url in self.urls:
+            self.lock.release()
+            return False
+        self.urls.add(url)
+        self.lock.release()
+        self.queue.put((url, level))
+        return True
 
     def crawl(self, i, q):
         while True:
             url, level = q.get()
+            print(f'T{i} got {url}')
 
-            links = self.get_links(url)
+            for link_from_page in self.get_links_from_page(url):
+                self.manage_url(self.normalize_url(link_from_page), level + 1)
 
-            for link in links:
-                link = self.normalize_url(link)
-                if not link.startswith(self.start_url):
-                    continue #todo: show as external for ex.
-
-                self.lock.acquire()
-                if  level > self.deep or link in self.urls:
-                    self.lock.release()
-                    continue
-
-                self.urls.add(link)
-                self.lock.release()
-                self.queue.put((link, level+1))
+            print(f'T{i} OK {url}')
             q.task_done()
 
     def start(self):
@@ -61,9 +67,10 @@ class Crawler:
             worker = Thread(target=self.crawl, args=(i,self.queue,))
             worker.setDaemon(True)
             worker.start()
-        self.urls.add(self.start_url)
-        self.queue.put((self.start_url,0))
+        self.urls.add(self.base_url)
+        self.queue.put((self.base_url,1))
         self.queue.join()
+
 
 if __name__ == "__main__":
     crawler = Crawler(argv[1])

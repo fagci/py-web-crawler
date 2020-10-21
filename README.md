@@ -1,5 +1,21 @@
 # py-web-crawler
 
+## Dependencies installation
+
+```sh
+pip install -r requirements.txt
+```
+
+## Usage
+
+### Basic
+
+```sh
+python crawler.py https://mikhail-yudin.ru
+```
+
+### With options
+
 ```sh
 usage: crawler.py [-h] [-d DEPTH] [-t THREADS_COUNT] [-u USER_AGENT] URL
 
@@ -15,3 +31,5 @@ optional arguments:
   -u USER_AGENT     user agent (default: Mozilla/5.0 (compatible;
                     pycrawlbot/1.0))
 ```
+
+Dependencies: [requirements.txt](https://github.com/fagcinsk/py-web-crawler/blob/main/requirements.txt)

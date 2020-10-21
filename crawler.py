@@ -2,10 +2,14 @@
 import argparse
 import re
 import requests
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 from queue import Queue
+from collections import namedtuple
 from threading import Thread, Lock
 
+import dns_cache
+
+dns_cache.override_system_resolver()
 
 class Crawler:
     def __init__(self, base_url, deep=5, threads=10, user_agent='Mozilla/5.0 (compatible; pycrawlbot/1.0)'):
@@ -17,50 +21,42 @@ class Crawler:
         self.lock = Lock()
         self.queue = Queue()
 
-        base_parsed = urlparse(base_url)
+        p = urlparse(base_url)
 
-        self.scheme = base_parsed.scheme
-        self.netloc = base_parsed.netloc
+        self.scheme = p.scheme
+        self.netloc = p.netloc
 
-        self.link_compiled_regexp = re.compile(r'href=["\']?([^"\'> ]*)["\'> ]?')
+        self.link_regexp = re.compile(r'href=["\']?([^"\'> ]+)["\'> ]?', re.IGNORECASE)
+        self.QueueItem = namedtuple('QueueItem', ['url', 'level'])
 
     def get_links(self, url):
         try:
-            p_url = urlparse(url)
-            headers = {
-                'User-Agent': self.ua
-            }
+            headers = {'User-Agent': self.ua}
             response = requests.get(url, timeout=10, headers=headers)
             elapsed_ms = round(response.elapsed.total_seconds() * 1000)
-            content_type = response.headers['Content-Type']
-            if 'text/html' not in content_type:
+            if 'text/html' not in response.headers['Content-Type']:
                 return []
             html = response.content.decode()
-            links = self.link_compiled_regexp.findall(html)
-
-            print(f'[{response.status_code}] {len(html):>6} B {elapsed_ms:>4} ms {p_url.path}')
+            links = self.link_regexp.findall(html)
+            print(f'[{response.status_code}] {len(html):>6} B {elapsed_ms:>4} ms {unquote(url[len(self.base_url):])}')
             return map(self.normalize_url, links)
         except Exception as e:
             print(f'[ERR] {e} for {url}')
             return []
 
     def normalize_url(self, url):
-        if url.startswith('//'):
-            return f'{self.scheme}:{url}'
-        elif url.startswith('/'):
-            return f'{self.scheme}://{self.netloc}{url}'
+        if url.startswith('//'): return f'{self.scheme}:{url}'
+        if url.startswith('/'): return f'{self.scheme}://{self.netloc}{url}'
         return url
 
     def manage_url(self, url, level):
         if level > self.deep or not url.startswith(self.base_url):
             return False
-        self.lock.acquire()
-        if url in self.urls:
-            self.lock.release()
-            return False
-        self.urls.add(url)
-        self.lock.release()
-        self.queue.put((url, level))
+        with self.lock:
+            if url in self.urls:
+                return False
+            self.urls.add(url)
+        self.queue.put(self.QueueItem(url=url, level=level))
         return True
 
     def crawl(self, queue):
@@ -78,9 +74,8 @@ class Crawler:
             worker.setDaemon(True)
             worker.start()
         self.urls.add(self.base_url)
-        self.queue.put((self.base_url, 1))
+        self.queue.put(self.QueueItem(self.base_url, 1))
         self.queue.join()
-
 
 if __name__ == "__main__":
     try:

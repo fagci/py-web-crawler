@@ -1,5 +1,7 @@
 # py-web-crawler
 
+Threaded web crawler written in Python.
+
 ```log
 python crawler.py https://mikhail-yudin.ru/notes/ -d 2 -t 50
 [200]  14496 B  936 ms /notes/

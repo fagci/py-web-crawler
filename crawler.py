@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import re
-import os
 import requests
 from argparse import ArgumentParser
 from urllib.parse import urlparse, unquote

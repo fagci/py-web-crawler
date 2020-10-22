@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import re
+import os
 import requests
 from argparse import ArgumentParser
 from urllib.parse import urlparse, unquote
@@ -12,10 +13,13 @@ import dns_cache
 dns_cache.override_system_resolver()
 
 class Crawler:
-    def __init__(self, base_url, deep=5, threads=10, user_agent='Mozilla/5.0 (compatible; pycrawlbot/1.0)'):
+    def __init__(self, base_url, deep=5, threads=10, output_file=None, user_agent='Mozilla/5.0 (compatible; pycrawlbot/1.0)'):
         self.base_url = base_url
         self.deep = deep
         self.threads = threads
+        self.file = None
+        if output_file:
+            self.file = open(output_file, 'w')
         self.ua = user_agent
         self.urls = set()
         self.lock = Lock()
@@ -56,6 +60,9 @@ class Crawler:
             if url in self.urls:
                 return False
             self.urls.add(url)
+            if self.file:
+                self.file.write(f'{url}\n')
+                self.file.flush()
         self.queue.put(self.QueueItem(url=url, level=level))
         return True
 
@@ -77,6 +84,10 @@ class Crawler:
         self.queue.put(self.QueueItem(self.base_url, 1))
         self.queue.join()
 
+    def __del__(self):
+        if self.file:
+            self.file.close()
+
 if __name__ == "__main__":
     try:
         parser = ArgumentParser(description='Web crawler.')
@@ -84,6 +95,7 @@ if __name__ == "__main__":
         parser.add_argument('url', metavar='URL', help='address to start crawl from')
         parser.add_argument('-d', metavar='DEPTH', type=int, default=5, help='crawl depth (default: 5)')
         parser.add_argument('-t', metavar='THREADS_COUNT', type=int, default=10, help='threads count (default: 10)')
+        parser.add_argument('-o', metavar='OUTPUT_FILE', default=None, help='output file')
         parser.add_argument(
                 '-u',
                 metavar='USER_AGENT',
@@ -92,7 +104,7 @@ if __name__ == "__main__":
 
         args = parser.parse_args()
 
-        crawler = Crawler(args.url, args.d, args.t, args.u)
+        crawler = Crawler(args.url, args.d, args.t, args.o, args.u)
         crawler.start()
 
         print(f'Total: {len(crawler.urls)} url(s)')

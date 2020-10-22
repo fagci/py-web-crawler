@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-import argparse
 import re
 import requests
+from argparse import ArgumentParser
 from urllib.parse import urlparse, unquote
 from queue import Queue
 from collections import namedtuple
@@ -26,7 +26,7 @@ class Crawler:
         self.scheme = p.scheme
         self.netloc = p.netloc
 
-        self.link_regexp = re.compile(r'href=["\']?([^"\'> ]+)["\'> ]?', re.IGNORECASE)
+        self.link_regexp = re.compile(r'href=["\']?([^"\'> ]+?)["\'> ]', re.I)
         self.QueueItem = namedtuple('QueueItem', ['url', 'level'])
 
     def get_links(self, url):
@@ -79,7 +79,7 @@ class Crawler:
 
 if __name__ == "__main__":
     try:
-        parser = argparse.ArgumentParser(description='Web crawler.')
+        parser = ArgumentParser(description='Web crawler.')
 
         parser.add_argument('url', metavar='URL', help='address to start crawl from')
         parser.add_argument('-d', metavar='DEPTH', type=int, default=5, help='crawl depth (default: 5)')
@@ -96,5 +96,6 @@ if __name__ == "__main__":
         crawler.start()
 
         print(f'Total: {len(crawler.urls)} url(s)')
+
     except KeyboardInterrupt:
         print('bye')

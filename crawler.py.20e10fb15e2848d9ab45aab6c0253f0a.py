@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import re
 import requests
-from sys import stdout
 from argparse import ArgumentParser
 from urllib.parse import urlparse, unquote
 from queue import Queue
@@ -19,10 +18,7 @@ class Crawler:
         self.threads = threads
         self.file = None
         if output_file:
-            if output_file == '-':
-                self.file = stdout
-            else:
-                self.file = open(output_file, 'w')
+            self.file = open(output_file, 'w')
         self.ua = user_agent
         self.urls = set()
         self.lock = Lock()
@@ -45,8 +41,7 @@ class Crawler:
                 return []
             html = response.content.decode()
             links = self.link_regexp.findall(html)
-            if self.file is not stdout:
-                print(f'[{response.status_code}] {len(html):>6} B {elapsed_ms:>4} ms {unquote(url[len(self.base_url):])}')
+            print(f'[{response.status_code}] {len(html):>6} B {elapsed_ms:>4} ms {unquote(url[len(self.base_url):])}')
             return map(self.normalize_url, links)
         except Exception as e:
             print(f'[ERR] {e} for {url}')
@@ -88,6 +83,10 @@ class Crawler:
         self.queue.put(self.QueueItem(self.base_url, 1))
         self.queue.join()
 
+    def __del__(self):
+        if self.file:
+            self.file.close()
+
 if __name__ == "__main__":
     try:
         parser = ArgumentParser(description='Web crawler.')
@@ -107,8 +106,7 @@ if __name__ == "__main__":
         crawler = Crawler(args.url, args.d, args.t, args.o, args.u)
         crawler.start()
 
-        if crawler.file is not stdout:
-            print(f'Total: {len(crawler.urls)} url(s)')
+        print(f'Total: {len(crawler.urls)} url(s)')
 
     except KeyboardInterrupt:
         print('bye')

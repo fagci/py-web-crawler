@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 import re
 import requests
+import dns_cache
 from sys import stdout
 from argparse import ArgumentParser
 from urllib.parse import urlparse, unquote
 from queue import Queue
 from collections import namedtuple
 from threading import Thread, Lock
-
-import dns_cache
 
 dns_cache.override_system_resolver()
 
@@ -18,11 +17,10 @@ class Crawler:
         self.deep = deep
         self.threads = threads
         self.file = None
-        if output_file:
-            if output_file == '-':
-                self.file = stdout
-            else:
-                self.file = open(output_file, 'w')
+        if output_file == '-':
+            self.file = stdout
+        elif output_file:
+            self.file = open(output_file, 'w')
         self.ua = user_agent
         self.urls = set()
         self.lock = Lock()
